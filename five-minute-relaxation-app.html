@@ -53,7 +53,10 @@
         const stopBtn = document.getElementById('stopBtn');
         const status = document.getElementById('status');
 
-        let countdown;
+        let wakeLock = null;
+        let relaxationActive = false;
+        let startTime;
+        let animationFrameId;
         let timeLeft = 5 * 60; // 5 minutes in seconds
 
         const relaxationSteps = [
@@ -65,10 +68,41 @@
             { duration: 50, message: "For the remaining time, plan your next task. Choose either a high priority task or a high interest task." }
         ];
 
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => {
+                    console.log('Wake Lock was released');
+                });
+                console.log('Wake Lock is active');
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock) {
+                wakeLock.release();
+                wakeLock = null;
+            }
+        }
+
         function updateTimer() {
+            if (!relaxationActive) return;
+
+            const currentTime = Date.now();
+            const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+            timeLeft = Math.max(300 - elapsedTime, 0);
+
             const minutes = Math.floor(timeLeft / 60);
             const seconds = timeLeft % 60;
             timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            if (timeLeft > 0) {
+                animationFrameId = requestAnimationFrame(updateTimer);
+            } else {
+                endRelaxation();
+            }
         }
 
         function speak(text) {
@@ -76,56 +110,78 @@
             speechSynthesis.speak(utterance);
         }
 
-        function startRelaxation() {
+        async function startRelaxation() {
+            await requestWakeLock();
+            relaxationActive = true;
+            startTime = Date.now();
             startBtn.style.display = 'none';
             stopBtn.style.display = 'inline';
             status.textContent = 'Relaxation in progress';
-
             speak("Starting 5-minute relaxation session.");
 
             let stepIndex = 0;
-            let stepTimeLeft = relaxationSteps[0].duration;
+            let stepStartTime = startTime;
 
-            countdown = setInterval(() => {
-                if (timeLeft <= 0) {
-                    clearInterval(countdown);
-                    speak("Relaxation session complete. Great job!");
-                    status.textContent = 'Relaxation complete';
-                    startBtn.style.display = 'inline';
-                    stopBtn.style.display = 'none';
-                    timeLeft = 5 * 60;
-                    updateTimer();
-                    return;
-                }
+            function checkStep() {
+                const currentTime = Date.now();
+                const stepElapsedTime = Math.floor((currentTime - stepStartTime) / 1000);
 
-                if (stepTimeLeft === relaxationSteps[stepIndex].duration) {
-                    speak(relaxationSteps[stepIndex].message);
-                    status.textContent = relaxationSteps[stepIndex].message;
-                }
-
-                timeLeft--;
-                stepTimeLeft--;
-                updateTimer();
-
-                if (stepTimeLeft === 0 && stepIndex < relaxationSteps.length - 1) {
+                if (stepElapsedTime >= relaxationSteps[stepIndex].duration) {
                     stepIndex++;
-                    stepTimeLeft = relaxationSteps[stepIndex].duration;
+                    if (stepIndex < relaxationSteps.length) {
+                        speak(relaxationSteps[stepIndex].message);
+                        status.textContent = relaxationSteps[stepIndex].message;
+                        stepStartTime = currentTime;
+                    }
                 }
-            }, 1000);
+
+                if (relaxationActive && stepIndex < relaxationSteps.length) {
+                    setTimeout(checkStep, 1000);
+                }
+            }
+
+            speak(relaxationSteps[0].message);
+            status.textContent = relaxationSteps[0].message;
+            checkStep();
+            updateTimer();
         }
 
         function stopRelaxation() {
-            clearInterval(countdown);
+            relaxationActive = false;
+            cancelAnimationFrame(animationFrameId);
+            releaseWakeLock();
             startBtn.style.display = 'inline';
             stopBtn.style.display = 'none';
             status.textContent = 'Relaxation paused';
             speak("Relaxation paused");
         }
 
+        function endRelaxation() {
+            relaxationActive = false;
+            releaseWakeLock();
+            startBtn.style.display = 'inline';
+            stopBtn.style.display = 'none';
+            status.textContent = 'Relaxation complete';
+            speak("Relaxation session complete. Great job!");
+            timeLeft = 5 * 60;
+            timer.textContent = '5:00';
+        }
+
         startBtn.addEventListener('click', startRelaxation);
         stopBtn.addEventListener('click', stopRelaxation);
 
-        updateTimer();
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Page is hidden, stop animation frame updates
+                cancelAnimationFrame(animationFrameId);
+            } else {
+                // Page is visible again, resume updates
+                if (relaxationActive) {
+                    updateTimer();
+                }
+            }
+        });
     </script>
 </body>
 </html>
