@@ -56,7 +56,7 @@
         let wakeLock = null;
         let relaxationActive = false;
         let startTime;
-        let animationFrameId;
+        let intervalId;
         let timeLeft = 5 * 60; // 5 minutes in seconds
 
         const relaxationSteps = [
@@ -87,20 +87,22 @@
             }
         }
 
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            timer.textContent = timeString;
+            document.title = `${timeString} - Relaxation App`;
+        }
+
         function updateTimer() {
             if (!relaxationActive) return;
 
-            const currentTime = Date.now();
-            const elapsedTime = Math.floor((currentTime - startTime) / 1000);
-            timeLeft = Math.max(300 - elapsedTime, 0);
+            timeLeft--;
+            updateTimerDisplay();
 
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-            if (timeLeft > 0) {
-                animationFrameId = requestAnimationFrame(updateTimer);
-            } else {
+            if (timeLeft <= 0) {
                 endRelaxation();
             }
         }
@@ -143,45 +145,38 @@
             speak(relaxationSteps[0].message);
             status.textContent = relaxationSteps[0].message;
             checkStep();
-            updateTimer();
+            intervalId = setInterval(updateTimer, 1000);
         }
 
         function stopRelaxation() {
             relaxationActive = false;
-            cancelAnimationFrame(animationFrameId);
+            clearInterval(intervalId);
             releaseWakeLock();
             startBtn.style.display = 'inline';
             stopBtn.style.display = 'none';
             status.textContent = 'Relaxation paused';
             speak("Relaxation paused");
+            document.title = "5-Minute Relaxation App";
         }
 
         function endRelaxation() {
             relaxationActive = false;
+            clearInterval(intervalId);
             releaseWakeLock();
             startBtn.style.display = 'inline';
             stopBtn.style.display = 'none';
             status.textContent = 'Relaxation complete';
             speak("Relaxation session complete. Great job!");
             timeLeft = 5 * 60;
-            timer.textContent = '5:00';
+            updateTimerDisplay();
+            document.title = "5-Minute Relaxation App";
         }
 
         startBtn.addEventListener('click', startRelaxation);
         stopBtn.addEventListener('click', stopRelaxation);
 
-        // Handle page visibility changes
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                // Page is hidden, stop animation frame updates
-                cancelAnimationFrame(animationFrameId);
-            } else {
-                // Page is visible again, resume updates
-                if (relaxationActive) {
-                    updateTimer();
-                }
-            }
-        });
+        // We don't need to handle page visibility changes anymore
+        // as setInterval will continue to run in the background
     </script>
 </body>
 </html>
