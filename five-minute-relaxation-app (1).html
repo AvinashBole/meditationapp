@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5-Minute Relaxation App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 80%;
+        }
+        #timer {
+            font-size: 3rem;
+            margin: 1rem 0;
+        }
+        button {
+            font-size: 1rem;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem;
+            cursor: pointer;
+        }
+        #status {
+            margin-top: 1rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>5-Minute Relaxation</h1>
+        <div id="timer">5:00</div>
+        <button id="startBtn">Start Relaxation</button>
+        <button id="stopBtn" style="display:none;">Stop</button>
+        <p id="status">Ready to start your relaxation session</p>
+    </div>
+
+    <script>
+        const timer = document.getElementById('timer');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+
+        let countdown;
+        let timeLeft = 5 * 60; // 5 minutes in seconds
+
+        const relaxationSteps = [
+            { duration: 30, message: "Take 30 seconds for free thinking. Let your mind wander freely." },
+            { duration: 120, message: "For the next 2 minutes, try to have no thoughts at all. Stare at an object about 20 feet away, maintaining constant focus." },
+            { duration: 40, message: "Now, take deep breaths for 40 seconds. Focus on your breathing." },
+            { duration: 40, message: "For the next 40 seconds, practice a relaxation technique of your choice. Repeat the action." },
+            { duration: 40, message: "Spend 40 seconds acknowledging thoughts from your previous work session. Think about the big picture and be compassionate. Let go of pride, ego, anger, frustration, fear, and greed. Just be happy." },
+            { duration: 50, message: "For the remaining time, plan your next task. Choose either a high priority task or a high interest task." }
+        ];
+
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
+        }
+
+        function startRelaxation() {
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline';
+            status.textContent = 'Relaxation in progress';
+
+            speak("Starting 5-minute relaxation session.");
+
+            let stepIndex = 0;
+            let stepTimeLeft = relaxationSteps[0].duration;
+
+            countdown = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    speak("Relaxation session complete. Great job!");
+                    status.textContent = 'Relaxation complete';
+                    startBtn.style.display = 'inline';
+                    stopBtn.style.display = 'none';
+                    timeLeft = 5 * 60;
+                    updateTimer();
+                    return;
+                }
+
+                if (stepTimeLeft === relaxationSteps[stepIndex].duration) {
+                    speak(relaxationSteps[stepIndex].message);
+                    status.textContent = relaxationSteps[stepIndex].message;
+                }
+
+                timeLeft--;
+                stepTimeLeft--;
+                updateTimer();
+
+                if (stepTimeLeft === 0 && stepIndex < relaxationSteps.length - 1) {
+                    stepIndex++;
+                    stepTimeLeft = relaxationSteps[stepIndex].duration;
+                }
+            }, 1000);
+        }
+
+        function stopRelaxation() {
+            clearInterval(countdown);
+            startBtn.style.display = 'inline';
+            stopBtn.style.display = 'none';
+            status.textContent = 'Relaxation paused';
+            speak("Relaxation paused");
+        }
+
+        startBtn.addEventListener('click', startRelaxation);
+        stopBtn.addEventListener('click', stopRelaxation);
+
+        updateTimer();
+    </script>
+</body>
+</html>
